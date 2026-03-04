@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>SIGEP </title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+    font-family:'Segoe UI',sans-serif;
+    margin:0;
+    background:linear-gradient(135deg,#1e3c72,#2a5298);
+    overflow-x:hidden;
+}
+
+header{
+    background:#fff;
+    padding:20px;
+    text-align:center;
+    font-weight:bold;
+    font-size:22px;
+    animation:fadeDown 0.6s ease;
+}
+
+.tabs{
+    display:flex;
+    background:#2a5298;
+}
+
+.tabs button{
+    flex:1;
+    padding:15px;
+    border:none;
+    background:#2a5298;
+    color:white;
+    cursor:pointer;
+    font-weight:bold;
+    transition:all 0.3s ease;
+}
+
+.tabs button:hover{
+    background:#1e3c72;
+}
+
+.tabs button.active{
+    background:#16325c;
+}
+
+.tab-content{
+    display:none;
+    padding:30px;
+    opacity:0;
+    transform:translateY(10px);
+    transition:all 0.4s ease;
+}
+
+.tab-content.active{
+    display:block;
+    opacity:1;
+    transform:translateY(0);
+}
+
+.card{
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    margin-bottom:20px;
+    box-shadow:0 5px 12px rgba(0,0,0,0.2);
+    animation:fadeUp 0.5s ease;
+}
+
+input{
+    padding:8px;
+    margin:5px;
+    border-radius:6px;
+    border:1px solid #ccc;
+    transition:all 0.3s ease;
+}
+
+input:focus{
+    outline:none;
+    border-color:#2a5298;
+    box-shadow:0 0 5px rgba(42,82,152,0.4);
+}
+
+button{
+    padding:8px 12px;
+    margin:5px;
+    border:none;
+    border-radius:6px;
+    background:#2a5298;
+    color:white;
+    cursor:pointer;
+    transition:all 0.3s ease;
+}
+
+button:hover{
+    transform:translateY(-2px);
+    box-shadow:0 5px 10px rgba(0,0,0,0.3);
+    background:#16325c;
+}
+
+.dashboard{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+}
+
+.grafico-grande{
+    flex:1.5;
+    max-width:500px;
+    height:300px;
+}
+
+.grafico-pequeno{
+    flex:1;
+    max-width:220px;
+    height:220px;
+}
+
+canvas{
+    width:100% !important;
+    height:100% !important;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    padding:10px;
+    text-align:center;
+}
+
+th{
+    background:#2a5298;
+    color:white;
+}
+
+tr{
+    animation:fadeInRow 0.4s ease;
+}
+
+tr:hover{
+    background:#f3f6ff;
+    transition:0.2s;
+}
+
+.verde{color:green;font-weight:bold;}
+.amarelo{color:orange;font-weight:bold;}
+.vermelho{color:red;font-weight:bold;}
+
+@keyframes fadeUp{
+    from{opacity:0; transform:translateY(20px);}
+    to{opacity:1; transform:translateY(0);}
+}
+
+@keyframes fadeDown{
+    from{opacity:0; transform:translateY(-20px);}
+    to{opacity:1; transform:translateY(0);}
+}
+
+@keyframes fadeInRow{
+    from{opacity:0; transform:translateX(-10px);}
+    to{opacity:1; transform:translateX(0);}
+}
+</style>
+</head>
+<body>
+
+<header>SIGEP – Sistema Integrado de Gestão de Estoque e Produtos</header>
+
+<div class="tabs">
+<button class="active" onclick="trocarAba('principal',this)">Dashboard</button>
+<button onclick="trocarAba('vencimentos',this)">Vencimentos</button>
+</div>
+
+<div id="principal" class="tab-content active">
+
+<div class="card">
+<h3>Cadastro de Produto</h3>
+<input type="text" id="nomeProduto" placeholder="Nome">
+<input type="number" id="precoProduto" placeholder="Preço">
+<input type="number" id="estoqueProduto" placeholder="Estoque">
+<input type="date" id="validadeProduto">
+<button onclick="cadastrarProduto()">Cadastrar</button>
+</div>
+
+<div class="card">
+<h3>Produtos</h3>
+<table>
+<thead>
+<tr>
+<th>Nome</th>
+<th>Preço</th>
+<th>Estoque</th>
+<th>Validade</th>
+<th>Ações</th>
+</tr>
+</thead>
+<tbody id="tabelaProdutos"></tbody>
+</table>
+</div>
+
+<div class="card">
+<h3>Dashboard</h3>
+<div class="dashboard">
+<div class="grafico-grande">
+<canvas id="graficoEstoque"></canvas>
+</div>
+<div class="grafico-pequeno">
+<canvas id="graficoMini"></canvas>
+</div>
+</div>
+</div>
+
+</div>
+
+<div id="vencimentos" class="tab-content">
+
+<div class="card">
+<h3>Status de Vencimentos</h3>
+<table>
+<thead>
+<tr>
+<th>Produto</th>
+<th>Validade</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody id="tabelaVencimentos"></tbody>
+</table>
+</div>
+
+<div class="card">
+<h3>Resumo de Vencimentos</h3>
+<canvas id="graficoVencimento" style="max-width:300px; height:220px;"></canvas>
+</div>
+
+<div style="display:flex; justify-content:center;">
+    <canvas id="graficoVencimento" style="max-width:300px; height:220px;"></canvas>
+</div>
+
+<script>
+
+let produtos=JSON.parse(localStorage.getItem("produtos"))||[];
+let graficoEstoque,graficoMini,graficoVencimento;
+
+function salvar(){
+localStorage.setItem("produtos",JSON.stringify(produtos));
+}
+
+function cadastrarProduto(){
+let nome=nomeProduto.value;
+let preco=parseFloat(precoProduto.value);
+let estoque=parseInt(estoqueProduto.value);
+let validade=validadeProduto.value;
+
+if(nome && preco>0 && estoque>=0 && validade){
+produtos.push({nome,preco,estoque,validade});
+salvar();
+atualizarTudo();
+}
+}
+
+function excluirProduto(i){
+if(confirm("Excluir produto?")){
+produtos.splice(i,1);
+salvar();
+atualizarTudo();
+}
+}
+
+function venderProduto(i){
+if(produtos[i].estoque>0){
+produtos[i].estoque--;
+salvar();
+atualizarTudo();
+}
+}
+
+function atualizarTabela(){
+tabelaProdutos.innerHTML="";
+produtos.forEach((p,i)=>{
+tabelaProdutos.innerHTML+=`
+<tr>
+<td>${p.nome}</td>
+<td>R$ ${p.preco.toFixed(2)}</td>
+<td>${p.estoque}</td>
+<td>${p.validade}</td>
+<td>
+<button onclick="venderProduto(${i})">Vender</button>
+<button onclick="excluirProduto(${i})">Excluir</button>
+</td>
+</tr>`;
+});
+}
+
+function verificarStatus(dataValidade){
+let hoje=new Date();
+let validade=new Date(dataValidade);
+let diff=(validade-hoje)/(1000*60*60*24);
+if(diff<0) return "vermelho";
+if(diff<=7) return "amarelo";
+return "verde";
+}
+
+function atualizarVencimentos(){
+tabelaVencimentos.innerHTML="";
+let vencidos=0,proximos=0,ok=0;
+
+produtos.forEach(p=>{
+let status=verificarStatus(p.validade);
+if(status=="vermelho") vencidos++;
+else if(status=="amarelo") proximos++;
+else ok++;
+
+tabelaVencimentos.innerHTML+=`
+<tr>
+<td>${p.nome}</td>
+<td>${p.validade}</td>
+<td class="${status}">
+${status=="vermelho"?"Vencido":status=="amarelo"?"Próximo":"OK"}
+</td>
+</tr>`;
+});
+
+if(graficoVencimento) graficoVencimento.destroy();
+graficoVencimento=new Chart(document.getElementById("graficoVencimento"),{
+type:'doughnut',
+data:{
+labels:['OK','Próximo','Vencido'],
+datasets:[{data:[ok,proximos,vencidos]}]
+},
+options:{
+animation:{duration:800}
+}
+});
+}
+
+function atualizarGraficosDashboard(){
+
+if(graficoEstoque) graficoEstoque.destroy();
+graficoEstoque=new Chart(document.getElementById("graficoEstoque"),{
+type:'bar',
+data:{
+labels:produtos.map(p=>p.nome),
+datasets:[{
+label:'Estoque Atual',
+data:produtos.map(p=>p.estoque)
+}]
+},
+options:{
+animation:{duration:800}
+}
+});
+
+if(graficoMini) graficoMini.destroy();
+graficoMini=new Chart(document.getElementById("graficoMini"),{
+type:'doughnut',
+data:{
+labels:produtos.map(p=>p.nome),
+datasets:[{
+data:produtos.map(p=>p.estoque)
+}]
+},
+options:{
+animation:{duration:900},
+plugins:{legend:{display:false}}
+}
+});
+}
+
+function trocarAba(id,botao){
+document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"));
+document.getElementById(id).classList.add("active");
+document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
+botao.classList.add("active");
+}
+
+function atualizarTudo(){
+atualizarTabela();
+atualizarGraficosDashboard();
+atualizarVencimentos();
+}
+
+atualizarTudo();
+
+</script>
+
+</body>
+</html>
